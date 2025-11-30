@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "google_reviews_scraper"
+version = "0.1.0"
+description = ""
+authors = ["Khoa Nguyen <khoanguyen@vireohealth.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.13.2"
+databricks-sdk = "^0.47.0"
+python-dotenv = "^1.1.0"
+ruff = "^0.11.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

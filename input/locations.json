@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "name": "Green Goods",
+    "address": "Blaine 672 County Highway 10, Northcourt Commons, Blaine, MN 55434",
+    "type": "store",
+    "brand_name": "Vireo",
+    "url": "https://www.google.com/maps/place/Green+Goods/@45.1253172,-93.2534303,17z/data=!3m1!4b1!4m6!3m5!1s0x52b32535e3f3c245:0x153077e6b07f4199!8m2!3d45.1253172!4d-93.2534303!16s%2Fg%2F11lkt_y1zv?entry=ttu&g_ep=EgoyMDI1MDMwMi4wIKXMDSoJLDEwMjExNDU1SAFQAw%3D%3D",
+    "competitors": [
+      {
+        "id": 1001,
+        "name": "Love is an Ingredient - THC Store",
+        "address": "4110 Central Ave NE #208, Columbia Heights, MN 55421, United States",
+        "type": "competitor",
+        "url": "https://www.google.com/maps/place/Love+is+an+Ingredient+-+THC+Store/@45.0435762,-93.250405,17z/data=!3m2!4b1!5s0x52b32e6b463cf02b:0xd2463a69d513e5d6!4m14!1m7!3m6!1s0x52b32535e3f3c245:0x153077e6b07f4199!2sGreen+Goods!8m2!3d45.1253172!4d-93.2534303!16s%2Fg%2F11lkt_y1zv!3m5!1s0x52b3250c543333e1:0x6c8580ac1f06d8ec!8m2!3d45.0435762!4d-93.2478247!16s%2Fg%2F11f64d0br3?entry=ttu&g_ep=EgoyMDI1MDMwNC4wIKXMDSoASAFQAw%3D%3D"
+      }
+    ]
+  }
+]
