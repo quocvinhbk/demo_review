@@ -13,7 +13,8 @@ require_relative 'review_scraper'
 
 class Main
   def self.call(latest_retrieval_from_date)
-    new(latest_retrieval_from_date).call
+    puts "ok"
+    # new(latest_retrieval_from_date).call
   end
 
   attr_reader :urls, :max_retries, :latest_retrieval_from_date

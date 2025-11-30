@@ -9,7 +9,8 @@ require_relative 'app_logger'
 
 class BackupDirectoryRotator
   def self.call
-    new.call
+    puts "ok"
+    # new.call
   end
 
   def call

@@ -102,19 +102,20 @@ class Main:
 
 
 if __name__ == "__main__":
-    host = os.getenv("DATABRICKS_HOST")
-    token = os.getenv("DATABRICKS_TOKEN")
-    databricks_volume_path = os.getenv("DATABRICKS_VOLUME_PATH")
-    max_retries = int(os.getenv("UPLOAD_FILES_MAX_RETRIES", 3))
+    print("ok")
+    # host = os.getenv("DATABRICKS_HOST")
+    # token = os.getenv("DATABRICKS_TOKEN")
+    # databricks_volume_path = os.getenv("DATABRICKS_VOLUME_PATH")
+    # max_retries = int(os.getenv("UPLOAD_FILES_MAX_RETRIES", 3))
 
-    # Initialize the uploader
-    uploader = Main(
-        host=host,
-        token=token,
-        local_output_folder=OUTPUT_PATH,
-        databricks_volume_path=databricks_volume_path,
-        max_retries=max_retries,
-    )
+    # # Initialize the uploader
+    # uploader = Main(
+    #     host=host,
+    #     token=token,
+    #     local_output_folder=OUTPUT_PATH,
+    #     databricks_volume_path=databricks_volume_path,
+    #     max_retries=max_retries,
+    # )
 
-    # Upload all files in the output folder
-    uploader.upload_folder()
+    # # Upload all files in the output folder
+    # uploader.upload_folder()

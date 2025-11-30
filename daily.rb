@@ -20,7 +20,7 @@ class Daily
   def self.call(latest_retrieval_from_date, latest_retrieval_to_date)
     AppLogger.call("@@@@@ Latest retrieval from date: #{latest_retrieval_from_date}")
     AppLogger.call("@@@@@ Latest retrieval to date: #{latest_retrieval_to_date}")
-    new(latest_retrieval_from_date, latest_retrieval_to_date).call
+    # new(latest_retrieval_from_date, latest_retrieval_to_date).call
   end
 
   attr_reader :location_details_path, :location_details, :max_retries, :latest_retrieval_from_date, :latest_retrieval_to_date, :max_threads
