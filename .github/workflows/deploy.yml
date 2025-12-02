@@ -64,6 +64,13 @@ jobs:
         with:
           ref: ${{ env.BRANCH_NAME }}
 
+      - name: Config SSH
+        uses: ./.github/actions/config_ssh
+        with:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USERNAME: ${{ secrets.PRODUCTION_USERNAME }}
+          PRIVATE_KEY: ${{ secrets.PRODUCTION_PRIVATE_KEY }}
+
       - name: Fetch code
         shell: bash
         run: |
