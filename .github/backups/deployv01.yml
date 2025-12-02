@@ -1,0 +1,218 @@
+---
+name: Deploy Google Reviews Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+      - master
+
+# Ensure only one deployment runs at a time
+concurrency:
+  group: deployment
+  cancel-in-progress: false
+
+env:
+  BRANCH_NAME: ${{ github.ref_name }}
+  WORKSPACE: /var/workspace
+  CORE_DIRECTORY: google_reviews_scraper
+  CHROME_DRIVE_DIRECTORY: chromedriver_linux64
+  ENVIRONMENT: production
+  PYENV_PYTHON_PATH: /root/.pyenv/shims/python
+  VENV_PATH: venv/bin/activate
+  BACKUP_OUTPUT_PATH: /var/backups
+  REPO_URL: git@github.com:${{ github.repository }}.git
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH_NAME }}
+
+      - name: Config SSH
+        uses: ./.github/actions/config_ssh
+        with:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USERNAME: ${{ secrets.PRODUCTION_USERNAME }}
+          PRIVATE_KEY: ${{ secrets.PRODUCTION_PRIVATE_KEY }}
+
+      - name: Build .env file
+        shell: bash
+        run: |
+          cat > .env <<EOF
+          # Review Scraper configuration
+          REVIEW_SCRAPER_HEADLESS_MODE=true
+          REVIEW_SCRAPER_WAITING_TIMEOUT=${{ vars.REVIEW_SCRAPER_WAITING_TIMEOUT || '50' }}
+          REVIEW_SCRAPER_TOTAL_REVIEWS_XPATH='//div[contains(@class, "F7nice")]//span[contains(@aria-label, "reviews")]'
+          REVIEW_SCRAPER_OVERVIEW_TAB_XPATH='//div[contains(@class, "RWPxGd")]//button[contains(@aria-label, "Overview")]'
+          REVIEW_SCRAPER_REVIEWS_TAB_XPATH='//div[contains(@class, "RWPxGd")]//button[contains(@aria-label, "Reviews")]'
+          REVIEW_SCRAPER_SORT_REVIEWS_XPATH='//div[contains(@class, "TrU0dc")]//button[contains(@aria-label, "Sort")]'
+          REVIEW_SCRAPER_NEWEST_PATH="div.fxNQSd[data-index='1']"
+          REVIEW_SCRAPER_REFINE_REVIEWS_PATH="div[aria-label='Refine reviews'] button[role='radio']"
+          REVIEW_SCRAPER_CATEGORY_SPAN_PATH='span.uEubGf'
+          REVIEW_SCRAPER_REVIEWS_PATH='div.jftiEf'
+          REVIEW_SCRAPER_MORE_BUTTON_PATH='button.w8nwRe'
+          REVIEW_SCRAPER_REVIEW_DESCRIPTION_PATH='span.wiI7pd'
+          REVIEW_SCRAPER_REVIEW_DATE_PATH='span.rsqaWe'
+          REVIEW_SCRAPER_RATING_PATH='span.kvMYJc'
+          REVIEW_SCRAPER_N_REVIEW_USER_PATH='div.RfnDt'
+          REVIEW_SCRAPER_URL_USER_PATH='button.WEBjve'
+          REVIEW_SCRAPER_OWNER_REPLY_PATH='div.wiI7pd'
+          REVIEW_SCRAPER_OWNER_REPLY_DATE_PATH='span.DZSIDd'
+          REVIEW_SCRAPER_FIRST_TIME_CHECK=${{ vars.REVIEW_SCRAPER_FIRST_TIME_CHECK || 'true' }}
+          REVIEW_SCRAPER_SKIP_REVIEW_SIZE=${{ vars.REVIEW_SCRAPER_SKIP_REVIEW_SIZE || '0' }}
+          REVIEW_SCRAPER_MAX_RETRIES=${{ vars.REVIEW_SCRAPER_MAX_RETRIES || '5' }}
+          REVIEW_SCRAPER_MAX_CRAWL_THREADS=${{ vars.REVIEW_SCRAPER_MAX_CRAWL_THREADS || '2' }}
+
+          # LATEST_RETRIEVAL_FROM_DATE configuration
+          LATEST_RETRIEVAL_FROM_DATE=${{ vars.LATEST_RETRIEVAL_FROM_DATE || '2025-03-12' }}
+          LATEST_RETRIEVAL_TO_DATE=${{ vars.LATEST_RETRIEVAL_TO_DATE || '' }}
+
+          # Upload to databricks configuration
+          DATABRICKS_HOST=${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN=${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_VOLUME_PATH=${{ secrets.DATABRICKS_VOLUME_PATH }}
+          UPLOAD_FILES_MAX_RETRIES=${{ vars.UPLOAD_FILES_MAX_RETRIES || '3' }}
+          BACKUP_OUTPUT_PATH=${{ env.BACKUP_OUTPUT_PATH }}
+
+          # Scraping Schedule configuration
+          WORKSPACE=${{ env.WORKSPACE }}
+          CORE_DIRECTORY=${{ env.CORE_DIRECTORY }}
+          GOOGLE_REVIEWS_SCRAPING_TIME=${{ vars.GOOGLE_REVIEWS_SCRAPING_TIME || '01:15 am' }}
+          ADD_GOOGLE_REVIEWS_TO_DATABRICKS_TIME=${{ vars.ADD_GOOGLE_REVIEWS_TO_DATABRICKS_TIME || '02:45 am' }}
+          ROTATE_BACKUP_DIRECTORY_TIME=${{ vars.ROTATE_BACKUP_DIRECTORY_TIME || '03:00 am' }}
+          NUMBER_OF_DIRECTORY_TO_KEEP=${{ vars.NUMBER_OF_DIRECTORY_TO_KEEP || '15' }}
+
+          # Slack configuration
+          SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL=${{ vars.SLACK_CHANNEL || '#notifications' }}
+
+          # Environment Configuration
+          ENVIRONMENT=${{ env.ENVIRONMENT }}
+          EOF
+
+      - name: Check if repository exists on server
+        id: check_repo
+        shell: bash
+        run: |
+          if ssh ${{ secrets.PRODUCTION_HOST }} "test -d ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/.git"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create workspace directory
+        if: steps.check_repo.outputs.exists == 'false'
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'mkdir -p ${{ env.WORKSPACE }}'
+
+      - name: Clone repository
+        if: steps.check_repo.outputs.exists == 'false'
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'cd ${{ env.WORKSPACE }} && \
+          git clone ${{ env.REPO_URL }} ${{ env.CORE_DIRECTORY }}'
+
+      - name: Fetch and checkout code
+        if: steps.check_repo.outputs.exists == 'true'
+        id: git_fetch
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'cd ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }} && \
+          BEFORE_COMMIT=$(git rev-parse HEAD) && \
+          git fetch --all --prune && \
+          git checkout --force ${{ env.BRANCH_NAME }} || git checkout -b ${{ env.BRANCH_NAME }} origin/${{ env.BRANCH_NAME }} && \
+          git reset --hard origin/${{ env.BRANCH_NAME }} && \
+          AFTER_COMMIT=$(git rev-parse HEAD) && \
+          if [ "$BEFORE_COMMIT" != "$AFTER_COMMIT" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi'
+
+      - name: Copy .env file to server
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          scp .env ${{ secrets.PRODUCTION_HOST }}:${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/
+
+      - name: Bundle install
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'cd ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }} && \
+          bash -lc "bundle install"'
+
+      - name: Remove old chromedriver
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'rm -f ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/chromedriver'
+
+      - name: Copy chromedriver from server location
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} '\
+          cp ${{ env.WORKSPACE }}/${{ env.CHROME_DRIVE_DIRECTORY }}/chromedriver ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/chromedriver && \
+          chmod +x ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/chromedriver'
+
+      - name: Remove old venv
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'rm -rf ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/venv'
+
+      - name: Create and configure venv
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'cd ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }} && \
+          ${{ env.PYENV_PYTHON_PATH }} -m venv venv && \
+          . ${{ env.VENV_PATH }} && pip install --upgrade pip && \
+          . ${{ env.VENV_PATH }} && pip install -r requirements.txt && \
+          . ${{ env.VENV_PATH }} && poetry lock --no-update && \
+          . ${{ env.VENV_PATH }} && poetry install --no-root'
+
+      - name: Create backup directory
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'mkdir -p ${{ env.BACKUP_OUTPUT_PATH }}/${{ env.CORE_DIRECTORY }}'
+
+      - name: Create output directory
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'mkdir -p ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/output && \
+          mkdir -p ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/input && \
+          mkdir -p ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/log'
+
+      - name: Update crontab with whenever
+        if: steps.check_repo.outputs.exists == 'false' || steps.git_fetch.outputs.changed == 'true' || inputs.force_deploy == true
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'cd ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }} && \
+          bash -lc "whenever --update-crontab"'
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          if [ "${{ steps.check_repo.outputs.exists }}" == "false" ]; then
+            echo "✅ Initial deployment completed successfully"
+          elif [ "${{ steps.git_fetch.outputs.changed }}" == "true" ] || [ "${{ inputs.force_deploy }}" == "true" ]; then
+            echo "✅ Deployment completed successfully"
+          else
+            echo "ℹ️ No changes detected - deployment skipped"
+          fi

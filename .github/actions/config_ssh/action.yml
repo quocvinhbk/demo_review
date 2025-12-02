@@ -1,0 +1,26 @@
+---
+name: Config SSH
+
+inputs:
+  HOST:
+    type: string
+  USERNAME:
+    type: string
+  PRIVATE_KEY:
+    type: string
+
+runs:
+  using: composite
+  steps:
+  - name: Config SSH
+    shell: bash
+    run: |
+      mkdir -p ~/.ssh/
+      echo "${{inputs.PRIVATE_KEY }}" > ~/.ssh/${{ inputs.HOST }}.key
+      chmod 600 ~/.ssh/${{ inputs.HOST }}.key
+      cat >>~/.ssh/config <<END
+      Host ${{ inputs.HOST }}
+        User ${{ inputs.USERNAME }}
+        IdentityFile ~/.ssh/${{ inputs.HOST }}.key
+        StrictHostKeyChecking no
+      END

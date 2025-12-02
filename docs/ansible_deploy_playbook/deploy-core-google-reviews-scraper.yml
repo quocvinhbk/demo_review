@@ -1,0 +1,76 @@
+---
+# References:
+# - https://docs.ansible.com/ansible/latest/modules/git_module.html
+# - https://docs.ansible.com/ansible/latest/modules/file_module.html
+
+- name: Clone 'google_reviews_scraper' repository
+  become: yes
+  git:
+    repo: "{{ core_google_reviews_scraper_repo }}"
+    dest: "{{ workspace }}/{{ core_directory }}"
+    accept_hostkey: yes
+    force: yes
+    version: "{{ core_google_reviews_scraper_version }}"
+  register: git_result
+
+- name: Bundle install
+  become: yes
+  command:
+    chdir: "{{ workspace }}/{{ core_directory }}"
+    cmd: bash -lc 'bundle install'
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Remove old chromedriver
+  become: yes
+  file:
+    path: "{{ workspace }}/{{ core_directory }}/chromedriver"
+    state: absent
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Add server chromedriver
+  become: yes
+  copy:
+    remote_src: True
+    src: "{{ workspace }}/{{ chrome_drive_directory }}/chromedriver"
+    dest: "{{ workspace }}/{{ core_directory }}/chromedriver"
+    mode: '0755'
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Add '.env' file
+  become: yes
+  template:
+    src: ../templates/core_google_reviews_scraper/env.template.js2
+    dest: "{{ workspace }}/{{ core_directory }}/.env"
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Remove old venv
+  become: yes
+  file:
+    path: "{{ workspace }}/{{ core_directory }}/venv"
+    state: absent
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Add venv
+  become: yes
+  shell:
+    chdir: "{{ workspace }}/{{ core_directory }}"
+    cmd: |
+      {{ pyenv_python_path }} -m venv venv
+      . {{ venv_path }} && pip install -r requirements.txt
+      . {{ venv_path }} && poetry lock --no-update
+      . {{ venv_path }} && poetry install --no-root
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Create backup directory
+  become: yes
+  file:
+    path: "{{ backup_output_path }}/{{ core_directory }}"
+    state: directory
+  when: git_result.changed or ignore_git_change == "true"
+
+- name: Update Cronjob
+  become: yes
+  command:
+    chdir: "{{ workspace }}/{{ core_directory }}"
+    cmd: bash -lc 'whenever --update-crontab'
+  when: git_result.changed or ignore_git_change == "true"

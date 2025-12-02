@@ -1,0 +1,21 @@
+---
+workspace: /var/workspace
+ignore_git_change: false
+docker_network_name: app_network
+pyenv_python_path: /root/.pyenv/shims/python
+venv_path: venv/bin/activate
+
+# Google Reviews Scraper
+core_google_reviews_scraper_repo: git@github.com:quocvinhbk/demo_review.git
+core_google_reviews_scraper_version: main
+chrome_drive_directory: chromedriver_linux64
+databricks_host: https://kkk.azuredatabricks.net/
+databricks_token: kkk
+databricks_volume_path: /KKK
+backup_output_path: /var/backups
+google_reviews_scraping_time: '01:15 am'
+add_google_reviews_to_databricks_time: '02:45 am'
+rotate_backup_directory_time: '03:00 am'
+number_of_directory_to_keep: 15
+review_scraper_max_crawl_threads: 2
+google_reviews_scraper_environment: production
