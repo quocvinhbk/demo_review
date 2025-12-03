@@ -26,37 +26,37 @@ env:
   BACKUP_OUTPUT_PATH: /var/backups
 
 jobs:
-  # build_env_file:
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: ${{ env.BRANCH_NAME }}
+  build_env_file:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH_NAME }}
 
-  #     - name: Config SSH
-  #       uses: ./.github/actions/config_ssh
-  #       with:
-  #         HOST: ${{ secrets.PRODUCTION_HOST }}
-  #         USERNAME: ${{ secrets.PRODUCTION_USERNAME }}
-  #         PRIVATE_KEY: ${{ secrets.PRODUCTION_PRIVATE_KEY }}
+      - name: Config SSH
+        uses: ./.github/actions/config_ssh
+        with:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USERNAME: ${{ secrets.PRODUCTION_USERNAME }}
+          PRIVATE_KEY: ${{ secrets.PRODUCTION_PRIVATE_KEY }}
 
-  #     - name: Build ${{ env.APP_ENV_FILENAME }} file
-  #       env:
-  #         VARS: ${{ toJSON(vars) }}
-  #       shell: bash
-  #       run: |
-  #         echo "$VARS" > vars.json
-  #         deploy_scripts/json_to_env.py vars.json ${{ env.APP_ENV_FILENAME }} ${{ env.ENVIRONMENT }}
+      - name: Build ${{ env.APP_ENV_FILENAME }} file
+        env:
+          VARS: ${{ toJSON(vars) }}
+        shell: bash
+        run: |
+          echo "$VARS" > vars.json
+          deploy_scripts/json_to_env.py vars.json ${{ env.APP_ENV_FILENAME }} ${{ env.ENVIRONMENT }}
 
-  #     - name: Copy ${{ env.APP_ENV_FILENAME }} file to ${{ env.ENVIRONMENT }}
-  #       shell: bash
-  #       run: |
-  #         ssh ${{ secrets.PRODUCTION_HOST }} 'mkdir -p ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}'
-  #         scp ${{ env.APP_ENV_FILENAME }} ${{ secrets.PRODUCTION_HOST }}:${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/
+      - name: Copy ${{ env.APP_ENV_FILENAME }} file to ${{ env.ENVIRONMENT }}
+        shell: bash
+        run: |
+          ssh ${{ secrets.PRODUCTION_HOST }} 'mkdir -p ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}'
+          scp ${{ env.APP_ENV_FILENAME }} ${{ secrets.PRODUCTION_HOST }}:${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/
 
   deploy:
-    # needs: build_env_file
+    needs: build_env_file
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
@@ -82,5 +82,4 @@ jobs:
       - name: Deploy app
         shell: bash
         run: |
-          ssh ${{ secrets.PRODUCTION_HOST }} '
-          BRANCH_NAME=${{ env.BRANCH_NAME }} ${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/deploy_scripts/deploy_app.sh'
+          ssh ${{ secrets.PRODUCTION_HOST }} '${{ env.WORKSPACE }}/${{ env.CORE_DIRECTORY }}/deploy_scripts/deploy_app.sh'
