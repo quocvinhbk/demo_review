@@ -3,6 +3,7 @@
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 GREEN='\033[0;32m'
+NC='\033[0m' # No Color
 # Logging functions
 log_info() {
     echo -e "$GREEN[INFO]$NC $1"
